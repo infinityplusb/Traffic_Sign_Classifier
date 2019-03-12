@@ -1,0 +1,2 @@
+model_checkpoint_path: "lenet_traffic_gs_do_lr005"
+all_model_checkpoint_paths: "lenet_traffic_gs_do_lr005"
