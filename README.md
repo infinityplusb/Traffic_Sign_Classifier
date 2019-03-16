@@ -1,58 +1,97 @@
 ## Project: Build a Traffic Sign Recognition Program
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
+[//]: # (Image References)
+
+[image_split]: histogram_of_image_split.png "Class Split"
+[sample_images]: sample_images.png "Sample Images"
+[le_net]: LeNet.png "LeNet Classic"
+[new_signs]: new_signs.png "New Signs"
+[top_n_predictions]: top_n_predictions.png "Top Predictions"
+
 Overview
 ---
-In this project, you will use what you've learned about deep neural networks and convolutional neural networks to classify traffic signs. You will train and validate a model so it can classify traffic sign images using the [German Traffic Sign Dataset](http://benchmark.ini.rub.de/?section=gtsrb&subsection=dataset). After the model is trained, you will then try out your model on images of German traffic signs that you find on the web.
+#### The submission includes a basic summary of the data set.
+In this project, the intention is to build a CNN architecture to read in 32x32 images to recognise images.
+The Dataset contains `34799` images for training, `4410` for validation and `12630` for testing. The dataset has `43` classes of image
 
-We have included an Ipython notebook that contains further instructions 
-and starter code. Be sure to download the [Ipython notebook](https://github.com/udacity/CarND-Traffic-Sign-Classifier-Project/blob/master/Traffic_Sign_Classifier.ipynb). 
+![Classes][image_split]
 
-We also want you to create a detailed writeup of the project. Check out the [writeup template](https://github.com/udacity/CarND-Traffic-Sign-Classifier-Project/blob/master/writeup_template.md) for this project and use it as a starting point for creating your own writeup. The writeup can be either a markdown file or a pdf document.
+A sample of 2 images of each class are included below
 
-To meet specifications, the project will require submitting three files: 
-* the Ipython notebook with the code
-* the code exported as an html file
-* a writeup report either as a markdown or pdf file 
+![Samples][sample_images]
 
-Creating a Great Writeup
----
-A great writeup should include the [rubric points](https://review.udacity.com/#!/rubrics/481/view) as well as your description of how you addressed each point.  You should include a detailed description of the code used in each step (with line-number references and code snippets where necessary), and links to other supporting documents or external references.  You should include images in your writeup to demonstrate how your code works with examples.  
+#### The submission describes the preprocessing techniques used and why these techniques were chosen.
 
-All that said, please be concise!  We're not looking for you to write a book here, just a brief description of how you passed each rubric point, and references to the relevant code :). 
+The initial attempt to create an accurate model was met with futility.
+As more data would be required to accurately train the some augmentation methods were used to supplement the existing dataset.
+Firstly, some of the images were flipped.
+Some images can be flipped horizontally, some vertically, and would still belong in the same class. Like `straight forward signs`.
+Others like `turn right` signs can be flipped but would now be `turn left`.
 
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup.
-
-The Project
----
-The goals / steps of this project are the following:
-* Load the data set
-* Explore, summarize and visualize the data set
-* Design, train and test a model architecture
-* Use the model to make predictions on new images
-* Analyze the softmax probabilities of the new images
-* Summarize the results with a written report
-
-### Dependencies
-This lab requires:
-
-* [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit)
-
-The lab environment can be created with CarND Term1 Starter Kit. Click [here](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) for the details.
-
-### Dataset and Repository
-
-1. Download the data set. The classroom has a link to the data set in the "Project Instructions" content. This is a pickled dataset in which we've already resized the images to 32x32. It contains a training, validation and test set.
-2. Clone the project, which contains the Ipython notebook and the writeup template.
-```sh
-git clone https://github.com/udacity/CarND-Traffic-Sign-Classifier-Project
-cd CarND-Traffic-Sign-Classifier-Project
-jupyter notebook Traffic_Sign_Classifier.ipynb
+As such, the project iterates through each class, and where the class images can be flipped horizontally they were, and then appended onto the new array
+```
+extended_train = np.append(extended_train, X_train[y_train == image][:, :, ::-1, :], axis = 0)
+```
+Where images could be flipped horizontally and below to a new class, they were, and the new class was added to the y_extension array
+```
+flip_class = cross_flippable[cross_flippable[:, 0] == image][0][1]
+extended_train = np.append(extended_train, X_train[y_train == flip_class][:, :, ::-1, :], axis = 0)
+# Fill labels for added images set to current class.
+extended_y = np.append(extended_y, np.full((extended_train.shape[0] - extended_y.shape[0]), image, dtype = int))
 ```
 
-### Requirements for Submission
-Follow the instructions in the `Traffic_Sign_Classifier.ipynb` notebook and write the project report using the writeup template as a guide, `writeup_template.md`. Submit the project code and writeup document.
+Vertical flips were done
+```
+extended_train = np.append(extended_train, extended_train[extended_y == image][:, ::-1, :, :], axis = 0)
+```
+and vertical and horizontal flips
+```
+extended_train = np.append(extended_train, extended_train[extended_y == image][:, ::-1, ::-1, :], axis = 0)
+```
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+This increased the sample size from `34799` to `59788`
 
+Further, adding 5 skewness and rotation transforms to the images, `xtra_train_extended[k] = cv2.warpAffine(extended_train[i],M,(32,32))` increased the sample size to `298940` .
+
+
+#### The submission provides details of the characteristics and qualities of the architecture, including the type of model used, the number of layers, and the size of each layer. Visualizations emphasizing particular qualities of the architecture are encouraged.
+
+![Classic LeNet Architecture][le_net]
+
+The architecture is exactly a LeNet architecture, with 2 convolution layers with relu activation and pooling. This is followed by 3 fully connected layers.
+The first layer takes in 32x32 images, and outputs 6 layers with a size of 28x28.
+The pooling layer, outputs 6 layers of size 14x14.
+An additional dropout layer is added to reduce overfitting.
+
+The second convolution layer outputs 16 10x10 layers. Pooling again reduces the layer size, by outputting 5x5. Again a dropout layer is added to reduce overfitting.
+
+The fully connected layers start with 120 nodes, reducing down to 84, then finally to the number of classes being predicted (43). The connection between layers is triggered by relu activations.
+
+#### The submission describes how the model was trained by discussing what optimizer was used, batch size, number of epochs and values for hyperparameters.
+
+
+- Learning Rate  : 0.001     
+- First Dropout  : 0.25    
+- Second Dropout : 0.75    
+- Batch Size     : 500    
+- Epochs        : 100    
+- Valid Accuracy : 0.953    
+- Test Accuracy : 0.932    
+
+
+#### The submission includes five new German Traffic signs found on the web, and the images are visualized. Discussion is made as to particular qualities of the images or traffic signs in the images that are of interest, such as whether they would be difficult for the model to classify.
+The network performs considerably poorly on my 7 chosen new signs.
+
+![New Signs][new_signs]
+
+Understandably one (the first) was not in the dataset (no left turn) but in general the performance was quite poor, with a success rate of 0.286 or 2 images out of 7.
+This is potentially due to the fact that none of the signs have borders (with random backgrounds) like the trained images, that the network was trained in colour and so is perhaps affected by brightness or colour saturation within the image, rather than picking up the features.
+
+#### The top five softmax probabilities of the predictions on the captured images are outputted. The submission discusses how certain or uncertain the model is of its predictions.
+
+The top n predictions shows the signs that are accurately predicted (roundabout and no entry), but gives no obvious indication as to why the other signs are performing poorly.
+
+![Top Predictions][top_n_predictions]
+
+Nearly all signs are predicted with 100% accuracy for the first value, with no other likely predictions which may indicate an issue with the implementation rather than of the model itself.
